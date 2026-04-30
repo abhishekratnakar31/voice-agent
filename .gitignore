@@ -1,0 +1,21 @@
+# Environments
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Data & Audio files
+memory.json
+*.wav
+*.mp3
+
+# OS generated files
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/

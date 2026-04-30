@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice AI Agent</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            text-align: center;
+            width: 90%;
+            max-width: 450px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        h1 { margin-top: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; }
+        .record-btn {
+            background: linear-gradient(135deg, #00C9FF 0%, #92FE9D 100%);
+            border: none;
+            border-radius: 50%;
+            width: 90px;
+            height: 90px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 201, 255, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 30px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .record-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 20px rgba(0, 201, 255, 0.6);
+        }
+        .record-btn.recording {
+            background: linear-gradient(135deg, #f12711 0%, #f5af19 100%);
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 4px 15px rgba(241, 39, 17, 0.4);
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(241, 39, 17, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 20px rgba(241, 39, 17, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(241, 39, 17, 0); }
+        }
+        .record-btn svg { width: 40px; height: 40px; fill: #fff; }
+        .chat-box {
+            text-align: left;
+            background: rgba(0,0,0,0.25);
+            padding: 20px;
+            border-radius: 16px;
+            min-height: 100px;
+            margin-top: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .message { margin-bottom: 12px; line-height: 1.5; }
+        .user-msg { color: #a0a0b0; font-size: 14px; }
+        .agent-msg { color: #fff; font-size: 16px; font-weight: 600; }
+        .loading { display: none; color: #00C9FF; margin-top: 10px; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Voice AI Agent</h1>
+        <p style="color: #a0a0b0; margin-bottom: 30px;">Tap the mic, speak your command, and tap again to send.</p>
+        
+        <button class="record-btn" id="recordBtn">
+            <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5-3c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
+        </button>
+        
+        <div class="loading" id="loadingText">Processing audio...</div>
+        
+        <div class="chat-box" id="chatBox">
+            <div class="message agent-msg">Hi! I can manage your To-Do list and remember important events.</div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer" style="display:none"></audio>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        const recordBtn = document.getElementById('recordBtn');
+        const chatBox = document.getElementById('chatBox');
+        const loadingText = document.getElementById('loadingText');
+        const audioPlayer = document.getElementById('audioPlayer');
+        let isRecording = false;
+
+        recordBtn.addEventListener('click', async () => {
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+                    audioChunks = [];
+                    mediaRecorder.addEventListener("dataavailable", event => {
+                        audioChunks.push(event.data);
+                    });
+                    mediaRecorder.addEventListener("stop", async () => {
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                        sendAudio(audioBlob);
+                    });
+                    isRecording = true;
+                    recordBtn.classList.add('recording');
+                } catch (err) {
+                    alert("Please allow microphone access!");
+                }
+            } else {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordBtn.classList.remove('recording');
+                loadingText.style.display = 'block';
+            }
+        });
+
+        async function sendAudio(blob) {
+            const formData = new FormData();
+            formData.append('file', blob, 'input.wav');
+            try {
+                const response = await fetch('/voice', { method: 'POST', body: formData });
+                const data = await response.json();
+                loadingText.style.display = 'none';
+                
+                chatBox.innerHTML = `
+                    <div class="message user-msg"><strong>You:</strong> ${data.user}</div>
+                    <div class="message agent-msg"><strong>Agent:</strong> ${data.reply}</div>
+                `;
+                
+                audioPlayer.src = `/audio?t=${new Date().getTime()}`;
+                audioPlayer.play();
+            } catch (error) {
+                loadingText.style.display = 'none';
+                chatBox.innerHTML = `<div class="message agent-msg" style="color:#ff4b2b">Error processing request. Check the server logs.</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
